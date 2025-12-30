@@ -1,0 +1,60 @@
+import sys
+from pathlib import Path
+
+def search_files(directory, keyword):
+    """
+    Search for files matching a keyword in a directory and subdirectories.
+    
+    Args:
+        directory (str): Root directory to search
+        keyword (str): Keyword to search for in filenames
+    
+    Returns:
+        list: List of matching file paths
+    """
+    root_path = Path(directory)
+    
+    # Check if directory exists
+    if not root_path.exists():
+        print(f"Error: Directory '{directory}' does not exist.")
+        return []
+    
+    if not root_path.is_dir():
+        print(f"Error: '{directory}' is not a directory.")
+        return []
+    
+    matches = []
+    
+    # Search recursively through all subdirectories
+    for file_path in root_path.rglob('*'):
+        # Only process files, not directories
+        if file_path.is_file():
+            # Check if keyword is in the filename (case-insensitive)
+            if keyword.lower() in file_path.name.lower():
+                matches.append(file_path)
+    
+    return matches
+
+def main():
+    # Example usage
+    if len(sys.argv) < 3:
+        print("Usage: python script.py <directory> <keyword>")
+        print("Example: python script.py . 'report'")
+        sys.exit(1)
+    
+    directory = sys.argv[1]
+    keyword = sys.argv[2]
+    
+    print(f"Searching for '{keyword}' in '{directory}' and subdirectories...\n")
+    
+    results = search_files(directory, keyword)
+    
+    if results:
+        print(f"Found {len(results)} matching file(s):\n")
+        for file_path in sorted(results):
+            print(f"  {file_path}")
+    else:
+        print("No matching files found.")
+
+if __name__ == "__main__":
+    main()
