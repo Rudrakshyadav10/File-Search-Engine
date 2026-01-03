@@ -1,13 +1,15 @@
 import sys
 from pathlib import Path
 
-def search_files(directory, keyword):
+def search_files(directory, keyword, extensions=None, case_sensitive=False):
     """
     Search for files matching a keyword in a directory and subdirectories.
     
     Args:
         directory (str): Root directory to search
         keyword (str): Keyword to search for in filenames
+        extensions (list): List of file extensions to filter by (e.g., ['.pdf', '.txt'])
+        case_sensitive (bool): If True, perform case-sensitive search
     
     Returns:
         list: List of matching file paths
@@ -24,37 +26,115 @@ def search_files(directory, keyword):
         return []
     
     matches = []
+    search_term = keyword if case_sensitive else keyword.lower()
+    
+    # Normalize extensions: ensure they start with a dot and are lowercase
+    normalized_extensions = None
+    if extensions:
+        normalized_extensions = [
+            ext if ext.startswith('.') else f'.{ext}' 
+            for ext in extensions
+        ]
+        normalized_extensions = [ext.lower() for ext in normalized_extensions]
     
     # Search recursively through all subdirectories
     for file_path in root_path.rglob('*'):
         # Only process files, not directories
         if file_path.is_file():
-            # Check if keyword is in the filename (case-insensitive)
-            if keyword.lower() in file_path.name.lower():
+            filename = file_path.name
+            
+            # Check extension filter
+            if normalized_extensions:
+                if file_path.suffix.lower() not in normalized_extensions:
+                    continue
+            
+            # Check if keyword is in the filename
+            compare_name = filename if case_sensitive else filename.lower()
+            if search_term in compare_name:
                 matches.append(file_path)
     
     return matches
 
+def print_results(results, keyword, extensions=None, case_sensitive=False):
+    """
+    Display search results in a formatted way.
+    
+    Args:
+        results (list): List of matching file paths
+        keyword (str): Original search keyword
+        extensions (list): File extensions used in filter
+        case_sensitive (bool): Whether case-sensitive search was used
+    """
+    print("\n" + "="*70)
+    print("SEARCH RESULTS")
+    print("="*70)
+    
+    # Print search parameters
+    print(f"Keyword: '{keyword}' ({('case-sensitive' if case_sensitive else 'case-insensitive')})")
+    if extensions:
+        print(f"Extensions: {', '.join(extensions)}")
+    print(f"Matches found: {len(results)}")
+    print("="*70 + "\n")
+    
+    if results:
+        for i, file_path in enumerate(sorted(results), 1):
+            # Show relative path and file size
+            try:
+                size = file_path.stat().st_size
+                size_str = f"{size:,} bytes" if size < 1024*1024 else f"{size/(1024*1024):.2f} MB"
+                print(f"{i:3}. {file_path}")
+                print(f"     Size: {size_str}\n")
+            except OSError:
+                print(f"{i:3}. {file_path} (unable to read size)\n")
+    else:
+        print("No matching files found.")
+    
+    print("="*70)
+
 def main():
-    # Example usage
+    """
+    Main function to handle command-line arguments and execute search.
+    """
     if len(sys.argv) < 3:
-        print("Usage: python script.py <directory> <keyword>")
-        print("Example: python script.py . 'report'")
+        print("Usage: python script.py <directory> <keyword> [options]")
+        print("\nOptions:")
+        print("  -e, --ext <ext1,ext2>   Filter by file extensions (e.g., -e pdf,txt,docx)")
+        print("  -c, --case-sensitive    Perform case-sensitive search")
+        print("\nExamples:")
+        print("  python script.py . report")
+        print("  python script.py . report -e pdf,docx")
+        print("  python script.py . report -c -e txt,log")
         sys.exit(1)
     
     directory = sys.argv[1]
     keyword = sys.argv[2]
+    extensions = None
+    case_sensitive = False
     
-    print(f"Searching for '{keyword}' in '{directory}' and subdirectories...\n")
+    # Parse optional arguments
+    i = 3
+    while i < len(sys.argv):
+        arg = sys.argv[i]
+        
+        if arg in ['-e', '--ext']:
+            if i + 1 < len(sys.argv):
+                extensions = sys.argv[i + 1].split(',')
+                extensions = [ext.strip() for ext in extensions]
+                i += 2
+            else:
+                print("Error: -e/--ext requires an argument")
+                sys.exit(1)
+        elif arg in ['-c', '--case-sensitive']:
+            case_sensitive = True
+            i += 1
+        else:
+            print(f"Error: Unknown option '{arg}'")
+            sys.exit(1)
     
-    results = search_files(directory, keyword)
+    print(f"\nSearching in '{directory}' and subdirectories...")
     
-    if results:
-        print(f"Found {len(results)} matching file(s):\n")
-        for file_path in sorted(results):
-            print(f"  {file_path}")
-    else:
-        print("No matching files found.")
+    results = search_files(directory, keyword, extensions, case_sensitive)
+    print_results(results, keyword, extensions, case_sensitive)
 
 if __name__ == "__main__":
     main()
